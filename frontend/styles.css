@@ -1,0 +1,76 @@
+body {
+    background-color: #edf6f9;
+    height:100%;
+}
+
+html {
+    height: 100%;
+}
+
+#content {
+    max-width: 600px;
+    width:80%;
+    display: block;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#title-box {
+    padding: 10px;
+}
+
+#title-box h2 {
+    margin:0
+}
+
+#title-box h4 {
+    margin:0;
+    margin-bottom: 10px;
+}
+
+#money-symbol {
+    width: 50px;
+    height: 50px;
+}
+
+
+h1, h2, h3, h4, h5, p, span, div {
+    color: #006d77;
+    font-family: 'Roboto Mono', monospace;
+}
+
+#transactions-table {
+    margin: auto;
+    border-spacing: 0 2em;
+}
+
+.amount {
+    padding-left: 20px;
+    text-align: right;
+    font-weight: bold;
+}
+
+.name {
+    padding-right: 50px;
+    text-align: left;
+    font-weight: bold;
+}
+
+.contrib-text {
+    color: #619a9f;
+    font-size: .9em;
+}
+
+tr {
+    padding:5px;
+}
+
+footer {
+    position: absolute;
+    bottom: 5px;
+}
+
+.small-text {
+    font-size:0.7em;
+}
