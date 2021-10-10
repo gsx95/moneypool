@@ -1,19 +1,20 @@
 
-<h1 align="center">
+<h2 align="center">
+PayPal Moneypool Alternative
   <br>
-  <a href="https://github.com/gsx95/georgguessr"><img src="./doc/logo.png" alt="M" width="400"></a>
-</h1>
+  <br>
+  <a href="https://github.com/gsx95/georgguessr"><img src="./doc/logo.png" alt="M" width="120"></a>
+</h2>
 
-<h4 align="center">Tool to replace Paypal's MoneyPool via code-word driven pooling of personal PayPal Funds.</h4>
+<h4 align="center">Tool to replace Paypal's moneypool with code-word driven pooling of personal PayPal funds.</h4>
 <p align="center">
 </p>
 
 <p align="center">
   <a href="#key-features">Key Features</a> •
-  <a href="#how-it-works">Key Features</a> •
+  <a href="#how-it-works">How It Works</a> •
   <a href="#how-to-use">How To Use</a> •
-  <a href="#how-to-build">How To Build</a> •
-  <a href="#license">License</a>
+  <a href="#how-to-build">How To Build</a>
 </p>
 <p align="center">
 <img src="./doc/demo.png" alt="Demo" width="600" style="border-radius:5px"/>
@@ -23,13 +24,15 @@
 
 This project is a quick alternative to PayPal's discontinued moneypool feature. Everyone with a personal PayPal account can use this stack to host their own moneypools.
 
-After creating a moneypool, whenever your friends includes a note starting with the moneypool's name when sending you PayPal funds, this tool automatically detects that the money belongs to the moneypool and displays the contributions nicely on your website.
+After creating a moneypool, whenever your friends includes a note starting with the moneypool's name when sending you PayPal funds, this tool automatically detects it and displays the contributions nicely on your website.
 
 ## Key Features
 
 * Easy moneypools
-  - friends can send you normal PayPal funds, they just need to let the "Note" field start with the moneypool's name.
-  - overview of every contributor and total sum
+  - friends can send you normal PayPal funds, they just need to let the "Note" field start with the moneypool's name
+  - overview of every contribution with name and amount
+  - displaying total sum of all contributions
+  - embedded paypal.me link with instructions on how to contribute
  
 * Easy, cheap and secure deployment
   - deployed in your AWS account
@@ -53,7 +56,7 @@ Note: This project is only meant for _personal_ PayPal accounts. Since business 
 
 Lets say you want to collect some money to buy your friend Paul a birthday gift. 
 
-You [add a new moneypool](#add-a-new-moneypool") to this stack and tell your friends to send money to your private PayPal account and to start the 'Note' field of the transactions with 'paul'.
+You [add a new moneypool](#add-a-new-moneypool) to this stack and tell your friends to send money to your private PayPal account and to start the 'Note' field of the transactions with 'paul'.
 
 You and your friends can now check on _YOURDOMAIN.COM?mp=paul_ who contributed and how much you collected in total so far.
 
