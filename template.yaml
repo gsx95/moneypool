@@ -1,0 +1,250 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  moneypool
+
+Globals:
+  Function:
+    Timeout: 10
+  Api:
+    Cors:
+      AllowMethods: "'GET,OPTIONS'"
+      AllowHeaders: "'*'"
+      AllowOrigin: "'*'"
+      AllowCredentials: "'*'"
+
+Parameters:
+  WebsiteCertificateArn:
+    Type: String
+    Description: Certificate for your website that must be issued in us-east-1
+  RuleSetName:
+    Type: String
+    Description: Name of SES ReceiptRsuleSet to put the receipt rule in.
+  CorsDomain:
+    Type: String
+    Description: Domain to allow CORS for.
+  BucketName:
+    Type: String
+    Description: Name of the bucket to store your emails in.
+  ReceiveNotificationsMailAddress:
+    Type: String
+    Description: Email address that you want to receive your paypal notifications with. Needs to have a corresponding verified domain in AWS SES.
+  Domain:
+    Type: String
+    Description: Domain to deploy your frontend to. Needs to have a corresponding hosted zone in route53.
+  APIDomain:
+    Type: String
+    Description: Domain to deploy your api to. Needs to have a corresponding hosted zone in route53.
+  HostedZoneName:
+    Type: String
+    Description: Name of your hosted zone for both website domain and api domain.
+
+Resources:
+  APICertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref APIDomain
+      ValidationMethod: DNS
+
+  API:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Cors:
+        AllowMethods: "'GET,OPTIONS'"
+        AllowHeaders: "'*'"
+        AllowOrigin: !Ref CorsDomain
+        AllowCredentials: "'*'"
+      Auth:
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          Description: MoneyPool API Usage Plan
+          UsagePlanName: MoneyPoolPlan
+          Quota:
+            Limit: 10000
+            Period: DAY
+          Throttle:
+            BurstLimit: 30
+            RateLimit: 30
+      EndpointConfiguration: REGIONAL
+      Domain:
+        DomainName: !Ref APIDomain
+        CertificateArn: !Ref APICertificate
+        Route53:
+          HostedZoneName: !Ref HostedZoneName
+
+  HandlePaymentNotification:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/process-payment-notification
+      Handler: process-payment-notification
+      Runtime: go1.x
+      Tracing: Active
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - 's3:GetObject'
+          Resource: "*"
+        - Effect: Allow
+          Action:
+          - 'dynamodb:*'
+          Resource: "*"
+      Environment:
+        Variables:
+          MoneyPoolsTableName: "MoneyPoolsTable"
+          TransactionsTableName: "TransactionsTable"
+          EmailBucketName: !Ref BucketName
+          EmailExpectedSubject: "Sie haben eine Zahlung erhalten"
+          EmailNotificationTextRegex: "[^>]+?(gesendet.)"
+          EmailNameAmountSeparator: " hat Ihnen "
+          EmailAmountTextSeparator: "\u00A0EUR gesendet."
+          CurrencyDecimalSeparator: ","
+          CurrencyThousandsSeparator: "."
+
+  GetMoneypoolDetails:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: lambda/api
+      Handler: api
+      Runtime: go1.x
+      Tracing: Active
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - 'dynamodb:*'
+          Resource: "*"
+      Events:
+        CatchAll:
+          Type: Api
+          Properties:
+            Path: /getDetails/{moneyPool}
+            RestApiId: !Ref API
+            Method: GET
+            Auth:
+              ApiKeyRequired: true
+      Environment:
+        Variables:
+          MoneyPoolsTableName: MoneyPoolsTable
+          TransactionsTableName: TransactionsTable
+          CorsDomain: !Ref CorsDomain
+
+  MoneyPoolsTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      TableName: MoneyPoolsTable
+      AttributeDefinitions:
+      - AttributeName: name
+        AttributeType: S
+      KeySchema:
+      - AttributeName: name
+        KeyType: HASH
+
+  TransactionsTable:
+    Type: 'AWS::DynamoDB::Table'
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      TableName: TransactionsTable
+      AttributeDefinitions:
+      - AttributeName: id
+        AttributeType: S
+      KeySchema:
+      - AttributeName: id
+        KeyType: HASH
+
+  CloudFrontOriginAccessIdentity:
+    Type: 'AWS::CloudFront::CloudFrontOriginAccessIdentity'
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: 'Moneypool frontend OA'
+
+  CloudfrontDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        Comment: "Cloudfront distribution for moneypool frontend"
+        DefaultRootObject: "index.html"
+        Enabled: true
+        HttpVersion: http2
+        PriceClass: PriceClass_100
+        Aliases:
+          - !Ref Domain
+        Origins:
+          - Id: s3-website
+            DomainName: !GetAtt S3Bucket.DomainName
+            S3OriginConfig:
+              OriginAccessIdentity:
+                Fn::Sub: 'origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}'
+        DefaultCacheBehavior:
+          Compress: 'true'
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          ForwardedValues:
+            QueryString: false
+          TargetOriginId: s3-website
+          ViewerProtocolPolicy : redirect-to-https
+        ViewerCertificate:
+          AcmCertificateArn: !Ref WebsiteCertificateArn
+          MinimumProtocolVersion: TLSv1.2_2021
+          SslSupportMethod: sni-only
+
+  WebsiteAliasRecord:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneName: !Ref HostedZoneName
+      RecordSets:
+        - Name: !Ref Domain
+          Type: A
+          AliasTarget:
+            HostedZoneId: Z2FDTNDATAQYW2
+            DNSName: !GetAtt
+              - CloudfrontDistribution
+              - DomainName
+
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref Domain
+
+  S3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3Bucket
+      PolicyDocument:
+        Statement:
+          -
+            Effect: Allow
+            Action: 's3:GetObject'
+            Resource:
+              - !Sub "arn:aws:s3:::${S3Bucket}/*"
+            Principal:
+              AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}"
+
+  ReceiveMailRule:
+    Type: AWS::SES::ReceiptRule
+    Properties:
+      RuleSetName: !Ref RuleSetName
+      Rule:
+        Actions:
+          - S3Action:
+              BucketName: !Ref BucketName
+          - LambdaAction:
+              FunctionArn: !GetAtt HandlePaymentNotification.Arn
+        Enabled: true
+        Name: receive-paypal-notification
+        Recipients:
+          - !Ref ReceiveNotificationsMailAddress
+
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: "lambda:InvokeFunction"
+      Principal: "ses.amazonaws.com"
+      SourceAccount: !Sub ${AWS::AccountId}
+      FunctionName: !GetAtt HandlePaymentNotification.Arn

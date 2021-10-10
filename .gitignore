@@ -1,0 +1,4 @@
+.idea
+samconfig.toml
+.DS_Store
+.aws-sam
