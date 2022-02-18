@@ -99,7 +99,7 @@ Resources:
           EmailExpectedSubject: "Sie haben eine Zahlung erhalten"
           EmailNotificationTextRegex: "[^>]+?(gesendet.)"
           EmailNameAmountSeparator: " hat Ihnen "
-          EmailAmountTextSeparator: "\u00A0EUR gesendet."
+          EmailAmountTextSeparator: "\u00A0€\u00A0EUR gesendet<"
           CurrencyDecimalSeparator: ","
           CurrencyThousandsSeparator: "."
 

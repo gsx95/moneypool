@@ -94,6 +94,9 @@ func HandleRequest(ctx context.Context, event EmailEvent) (string, error) {
 		htmlBetweenQuotes := substringBetween(string(decodedHtml), "quote-left.png", "quote-right.png")
 		tagWithNoteText := substringBetween(htmlBetweenQuotes, `align="center"`, "</td>")
 		note := tagWithNoteText[strings.Index(tagWithNoteText, ">")+1:]
+		note = note[strings.Index(note, ">")+1:]
+		note = note[strings.Index(note, ">")+1:]
+		note = note[:strings.Index(note, "<")]
 
 		allMoneyPools := GetAllMoneyPools()
 		var moneyPool *string
