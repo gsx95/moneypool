@@ -1,0 +1,58 @@
+
+#content {
+    text-align: center;
+}
+
+#logo {
+    height: 50px;
+    width: 50px;
+    margin-top:2em;
+}
+
+#open-closed-tag {
+    margin-top: 10px;
+}
+
+#sum-text {
+    margin-top: 0.5em;
+}
+
+#sum-text-skel {
+    margin-top: 1em;
+}
+
+#title-text-skel {
+    margin-top: 0.5em;
+}
+
+.tag {
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+#tags-stack {
+    margin-top: 1em;
+}
+
+#hr-top {
+    margin-top: 2em;
+    margin-bottom:0.5em;
+}
+
+#hr-bottom {
+    margin-bottom:2em;
+    margin-top: 0.5em;
+}
+
+#controls-box {
+    position: absolute;
+    right:2em;
+    top: 0;
+}
+
+#main {
+    width: 100%;
+    margin:0;
+    padding: 0 0 3em;
+}
+

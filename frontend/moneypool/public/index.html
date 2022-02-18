@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@200&display=swap" rel="stylesheet">
+    <title>Moneypool</title>
+  </head>
+  <body>
+
+    <!-- fix chakra UI flashing color mode https://chakra-ui.com/docs/features/color-mode#color-mode-flash-issue -->
+
+    <script>
+      const systemIsDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const localStorageColorMode = localStorage.getItem("chakra-ui-color-mode");
+
+      const DARK_STYLE = "background-color: #1A202C";
+      const LIGHT_STYLE = "background-color: #ffffff";
+
+      if(localStorageColorMode === "dark") {
+        document.body.style = DARK_STYLE;
+      } else if(localStorageColorMode === "light") {
+        document.body.style = LIGHT_STYLE;
+      } else if(systemIsDark) {
+        document.body.style = DARK_STYLE;
+      } else {
+        document.body.style = LIGHT_STYLE;
+      }
+
+    </script>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+
+
+  </body>
+</html>
