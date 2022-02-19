@@ -23,6 +23,7 @@ var (
 type Transaction struct {
 	Name     string `json:"name"`
 	Base     int    `json:"base"`
+	Date     string `json:"date,omitempty"`
 	Fraction int    `json:"fraction"`
 }
 
@@ -57,13 +58,14 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	resp.Title = *mpItem.Item["title"].S
 
 	for _, tValues := range mpItem.Item["transactions"].L {
-		name, base, fraction, err := getTransaction(*tValues.S)
+		name, date, base, fraction, err := getTransaction(*tValues.S)
 		if err != nil {
 			log.Printf("Error getting transaction %s: %v", *tValues.S, err)
 			continue
 		}
 		resp.Transactions = append(resp.Transactions, Transaction{
 			Name:     name,
+			Date:     date,
 			Base:     base,
 			Fraction: fraction,
 		})
@@ -86,7 +88,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 	}, nil
 }
 
-func getTransaction(tid string) (name string, base, fraction int, err error) {
+func getTransaction(tid string) (name, date string, base, fraction int, err error) {
 	trItem, err := dynamoClient.GetItem(&dynamodb.GetItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
 			"id": {
@@ -99,6 +101,9 @@ func getTransaction(tid string) (name string, base, fraction int, err error) {
 		return
 	}
 	name = *trItem.Item["name"].S
+	if trItem.Item["date"] != nil {
+		date = *trItem.Item["date"].S
+	}
 	baseString := *trItem.Item["base"].N
 	fractionString := *trItem.Item["fraction"].N
 	log.Printf("got transaction: %s %s %s", name, baseString, fractionString)
