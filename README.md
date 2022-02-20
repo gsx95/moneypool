@@ -17,7 +17,7 @@ PayPal Moneypool Alternative
   <a href="#how-to-build">How To Build</a>
 </p>
 <p align="center">
-<img src="./doc/demo.png" alt="Demo" width="600" style="border-radius:5px"/>
+<img src="doc/demo.png" alt="Demo" width="600" style="border-radius:5px"/>
 </p>
 
 ## About
