@@ -38,6 +38,14 @@ Parameters:
   HostedZoneName:
     Type: String
     Description: Name of your hosted zone for both website domain and api domain.
+  EmailExpectedSubject:
+    Type: String
+    Description: Expected Subject of notification mail. All mails with different subjects are ignored.
+    Default: "Sie haben eine Zahlung erhalten"
+  EmailNameAmountRegex:
+    Type: String
+    Description: Regex to match the name of the sender and the amount sent in one matching group each. E.g. if the mail contains the text '[Name] has sent [amount] to you', then this probably should be '(.+) has sent (.+) to you'.
+    Default: "(.+) hat Ihnen (.+) gesendet"
 
 Resources:
   APICertificate:
@@ -96,12 +104,8 @@ Resources:
           MoneyPoolsTableName: "MoneyPoolsTable"
           TransactionsTableName: "TransactionsTable"
           EmailBucketName: !Ref BucketName
-          EmailExpectedSubject: "Sie haben eine Zahlung erhalten"
-          EmailNotificationTextRegex: "[^>]+?(gesendet.)"
-          EmailNameAmountSeparator: " hat Ihnen "
-          EmailAmountTextSeparator: "\u00A0€\u00A0EUR gesendet<"
-          CurrencyDecimalSeparator: ","
-          CurrencyThousandsSeparator: "."
+          EmailExpectedSubject: !Ref EmailExpectedSubject
+          NameAmountRegex: !Ref EmailNameAmountRegex
 
   GetMoneypoolDetails:
     Type: AWS::Serverless::Function
@@ -202,7 +206,7 @@ Resources:
         - Name: !Ref Domain
           Type: A
           AliasTarget:
-            HostedZoneId: Z2FDTNDATAQYW2
+            HostedZoneId: Z2FDTNDATAQYW2 # Hosted Zone of cloudfront
             DNSName: !GetAtt
               - CloudfrontDistribution
               - DomainName

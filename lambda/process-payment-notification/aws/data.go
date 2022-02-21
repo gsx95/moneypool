@@ -1,4 +1,4 @@
-package main
+package aws
 
 import (
 	"errors"
@@ -9,21 +9,31 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 var (
 	moneyPoolsTableName   = os.Getenv("MoneyPoolsTableName")
 	transactionsTableName = os.Getenv("TransactionsTableName")
-	dynamoClient        = dynamodb.New(AwsSession, aws.NewConfig())
+	dynamoClient          = dynamodb.New(Session, aws.NewConfig())
 )
 
 type Amount struct {
 	Base     int // e.g. eur, usd
-	Fraction int //e.g. cents
+	Fraction int // e.g. cents
 }
 
+func FindMoneyPoolByName(name string) (string, error) {
+	allMoneyPools := getAllMoneyPools()
+	for _, mpName := range allMoneyPools {
+		if strings.HasPrefix(strings.ToLower(name), strings.ToLower(*mpName)) {
+			return *mpName, nil
+		}
+	}
+	return "", fmt.Errorf("no moneypool found with name %s", name)
+}
 
-func GetAllMoneyPools() (names []*string) {
+func getAllMoneyPools() (names []*string) {
 	input := &dynamodb.ScanInput{
 		TableName: aws.String(moneyPoolsTableName),
 		AttributesToGet: []*string{
@@ -43,12 +53,11 @@ func GetAllMoneyPools() (names []*string) {
 	return
 }
 
-
-func AddTransaction(moneyPool, name string, amount Amount) error {
+func AddTransaction(moneyPool, name, date string, amount Amount) error {
 
 	uid := uuid.New().String()
 
-	tids := []*dynamodb.AttributeValue{
+	tIds := []*dynamodb.AttributeValue{
 		{
 			S: aws.String(uid),
 		},
@@ -64,7 +73,7 @@ func AddTransaction(moneyPool, name string, amount Amount) error {
 		},
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":tid": {
-				L: tids,
+				L: tIds,
 			},
 			":empty_list": {
 				L: []*dynamodb.AttributeValue{},
@@ -94,6 +103,9 @@ func AddTransaction(moneyPool, name string, amount Amount) error {
 			},
 			"name": {
 				S: aws.String(name),
+			},
+			"date": {
+				S: aws.String(date),
 			},
 		},
 		TableName: aws.String(transactionsTableName),
