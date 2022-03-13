@@ -9,6 +9,6 @@ require (
 	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 )
 
-module pay-event
+module transaction
 
 go 1.16

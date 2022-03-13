@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"github.com/DusanKasan/parsemail"
 	"github.com/sirupsen/logrus"
-	"pay-event/data"
 	"strings"
 	"time"
+	"transaction/data"
 )
 
 type MailParser interface {

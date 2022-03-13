@@ -5,8 +5,8 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/sirupsen/logrus"
 	"os"
-	"pay-event/aws"
-	"pay-event/parser"
+	"transaction/aws"
+	"transaction/parser"
 )
 
 type EmailEvent struct {

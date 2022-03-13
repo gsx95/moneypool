@@ -28,7 +28,7 @@ type MoneyPoolsHandler struct {
 	transactionsTableName string
 	corsDomain            string
 	dynamoClient          dynamodb.DynamoDB
-	logger                *log.Logger
+	logger                *log.Entry
 }
 
 func NewHandler(moneyPoolsTableName string, transactionsTableName string, corsDomain string, dynamoClient dynamodb.DynamoDB) *MoneyPoolsHandler {
@@ -41,8 +41,8 @@ func (h *MoneyPoolsHandler) GetMoneyPool(request events.APIGatewayProxyRequest) 
 		return MoneyPool{}, errors.NewInvalidParametersError(fmt.Errorf("no moneyppol name given"))
 	}
 
-	h.logger = h.logger.WithFields(log.Fields{"requestedMP": mpName}).Logger
-	h.logger.Infof("search moneyppol")
+	h.logger = log.WithFields(log.Fields{"requestedMP": mpName})
+	h.logger.Infof("search moneypool")
 	mpItem, err := h.dynamoClient.GetItem(&dynamodb.GetItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
 			"name": {
@@ -86,7 +86,7 @@ func (h *MoneyPoolsHandler) GetMoneyPool(request events.APIGatewayProxyRequest) 
 			Fraction: fraction,
 		})
 	}
-	h.logger.Infof("moneypool item: %v", resp)
+	h.logger.Infof("moneypool item: %+v", resp)
 	return resp, nil
 }
 

@@ -9,10 +9,10 @@ import (
 	"github.com/ericchiang/css"
 	"github.com/leekchan/accounting"
 	"golang.org/x/net/html"
-	"pay-event/data"
 	"regexp"
 	"strconv"
 	"strings"
+	"transaction/data"
 )
 
 type TransactionMailParser struct {
