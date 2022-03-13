@@ -5,6 +5,8 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/sirupsen/logrus"
 	"os"
+	"pay-event/aws"
+	"pay-event/parser"
 )
 
 type EmailEvent struct {
@@ -26,9 +28,23 @@ func init() {
 	logrus.SetLevel(logrus.InfoLevel)
 }
 
+var (
+	nameAmountRegex       = os.Getenv("NameAmountRegex")
+	moneyPoolsTableName   = os.Getenv("MoneyPoolsTableName")
+	transactionsTableName = os.Getenv("TransactionsTableName")
+)
+
 func HandleRequest(_ context.Context, event EmailEvent) (string, error) {
+	config := Config{
+		ExpectedSubject: os.Getenv("EmailExpectedSubject"),
+		MailGetter:      &aws.MailGetter{},
+		MailParser:      parser.NewTransactionMailParser(nameAmountRegex),
+		DataStore:       aws.NewDataStore(moneyPoolsTableName, transactionsTableName),
+	}
+	proc := NewMailEventProcessor(config)
+
 	for _, record := range event.Records {
-		handleEventRecord(record)
+		proc.WriteTransactionToMoneyPool(record)
 	}
 	return "ok", nil
 }

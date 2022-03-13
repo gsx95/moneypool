@@ -18,9 +18,12 @@ var (
 	bucketName = os.Getenv("EmailBucketName")
 )
 
-func ParseIncomingMail(messageId string) (mail *parsemail.Email, err error) {
+type MailGetter struct {
+}
+
+func (g *MailGetter) GetMail(messageId string) (mail *parsemail.Email, err error) {
 	id := messageId
-	contentReader, err := readFileFromS3(id)
+	contentReader, err := g.readFileFromS3(id)
 	if err != nil {
 		return nil, fmt.Errorf("Error while reading obj %s from s3: %v\n", id, err)
 	}
@@ -31,7 +34,7 @@ func ParseIncomingMail(messageId string) (mail *parsemail.Email, err error) {
 	return &email, nil
 }
 
-func readFileFromS3(key string) (io.Reader, error) {
+func (g *MailGetter) readFileFromS3(key string) (io.Reader, error) {
 	file, err := os.Create("/tmp/" + key)
 	if err != nil {
 		return nil, err

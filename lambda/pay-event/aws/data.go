@@ -5,24 +5,26 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/google/uuid"
-	"os"
+	"pay-event/data"
 	"strconv"
 	"strings"
 )
 
 var (
-	moneyPoolsTableName   = os.Getenv("MoneyPoolsTableName")
-	transactionsTableName = os.Getenv("TransactionsTableName")
-	dynamoClient          = dynamodb.New(Session, aws.NewConfig())
+	dynamoClient = dynamodb.New(Session, aws.NewConfig())
 )
 
-type Amount struct {
-	Base     int // e.g. eur, usd
-	Fraction int // e.g. cents
+type DataStore struct {
+	MoneyPoolsTableName   string
+	TransactionsTableName string
 }
 
-func FindMoneyPoolsByPrefix(name string) ([]string, error) {
-	allMoneyPools, err := getAllMoneyPools()
+func NewDataStore(moneyPoolsTableName string, transactionsTableName string) *DataStore {
+	return &DataStore{MoneyPoolsTableName: moneyPoolsTableName, TransactionsTableName: transactionsTableName}
+}
+
+func (s *DataStore) FindMoneyPoolsByPrefix(name string) ([]string, error) {
+	allMoneyPools, err := s.getAllMoneyPools()
 	if err != nil {
 		return nil, err
 	}
@@ -35,9 +37,9 @@ func FindMoneyPoolsByPrefix(name string) ([]string, error) {
 	return moneyPools, nil
 }
 
-func getAllMoneyPools() (names []*string, err error) {
+func (s *DataStore) getAllMoneyPools() (names []*string, err error) {
 	input := &dynamodb.ScanInput{
-		TableName: aws.String(moneyPoolsTableName),
+		TableName: aws.String(s.MoneyPoolsTableName),
 		AttributesToGet: []*string{
 			aws.String("name"),
 		},
@@ -54,7 +56,7 @@ func getAllMoneyPools() (names []*string, err error) {
 	return
 }
 
-func AddTransaction(moneyPool, name, date string, amount Amount) error {
+func (s *DataStore) AddTransaction(moneyPool, name, date string, amount data.Amount) error {
 
 	uid := uuid.New().String()
 
@@ -79,7 +81,7 @@ func AddTransaction(moneyPool, name, date string, amount Amount) error {
 			},
 		},
 		UpdateExpression: aws.String("SET transactions = list_append(if_not_exists(transactions, :empty_list), :tid)"),
-		TableName:        aws.String(moneyPoolsTableName),
+		TableName:        aws.String(s.MoneyPoolsTableName),
 	}
 
 	_, err := dynamoClient.UpdateItem(input)
@@ -105,12 +107,12 @@ func AddTransaction(moneyPool, name, date string, amount Amount) error {
 				S: aws.String(date),
 			},
 		},
-		TableName: aws.String(transactionsTableName),
+		TableName: aws.String(s.TransactionsTableName),
 	}
 
 	_, err = dynamoClient.PutItem(transactionInput)
 	if err != nil {
-		return fmt.Errorf("error putting transaction item: %v", err)
+		return fmt.Errorf("error putting parser item: %v", err)
 	}
 	return nil
 }

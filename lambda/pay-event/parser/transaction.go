@@ -1,4 +1,4 @@
-package transaction
+package parser
 
 import (
 	"bytes"
@@ -9,28 +9,21 @@ import (
 	"github.com/ericchiang/css"
 	"github.com/leekchan/accounting"
 	"golang.org/x/net/html"
-	"os"
+	"pay-event/data"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-type Info struct {
-	Name     string
-	Base     int
-	Fraction int
-	Note     string
+type TransactionMailParser struct {
+	NameAmountRegex string
 }
 
-func (i Info) AmountString() string {
-	return fmt.Sprintf("%d.%d", i.Base, i.Fraction)
+func NewTransactionMailParser(nameAmountRegex string) *TransactionMailParser {
+	return &TransactionMailParser{NameAmountRegex: nameAmountRegex}
 }
 
-var (
-	NameAmountRegex = os.Getenv("NameAmountRegex")
-)
-
-func GetTransactionInfo(email parsemail.Email) (*Info, error) {
+func (p *TransactionMailParser) GetTransactionInfo(email parsemail.Email) (*data.Transaction, error) {
 
 	decodedHtml, err := b64.StdEncoding.DecodeString(email.HTMLBody)
 	if err != nil {
@@ -42,12 +35,12 @@ func GetTransactionInfo(email parsemail.Email) (*Info, error) {
 		return nil, fmt.Errorf("Error while parsing html %v\n", err)
 	}
 
-	transInfo, err := getTransactionInfo(rootNode)
+	transInfo, err := p.getTransactionInfo(rootNode)
 	if err != nil {
-		return nil, fmt.Errorf("Error while getting transaction info %v\n", err)
+		return nil, fmt.Errorf("Error while getting parser info %v\n", err)
 	}
 
-	note, err := getNote(rootNode)
+	note, err := p.getNote(rootNode)
 	if err != nil {
 		return nil, fmt.Errorf("Error while getting Note %v\n", err)
 	}
@@ -57,7 +50,7 @@ func GetTransactionInfo(email parsemail.Email) (*Info, error) {
 
 }
 
-func getNote(html *html.Node) (string, error) {
+func (p *TransactionMailParser) getNote(html *html.Node) (string, error) {
 	quoteSelector, err := css.Parse(`img[alt="quote"]`)
 	if err != nil {
 		return "", err
@@ -67,7 +60,7 @@ func getNote(html *html.Node) (string, error) {
 		return "", fmt.Errorf("could not get image tag surrounding Note")
 	}
 	firstImg := imgTags[0]
-	allTextTags, err := getAllSpanTexts(firstImg.Parent.Parent)
+	allTextTags, err := p.getAllSpanTexts(firstImg.Parent.Parent)
 	if err != nil {
 		return "", err
 	}
@@ -75,9 +68,9 @@ func getNote(html *html.Node) (string, error) {
 	return allTextTags[0], nil
 }
 
-func getTransactionInfo(html *html.Node) (info *Info, err error) {
-	re := regexp.MustCompile(NameAmountRegex)
-	allTexts, err := getAllSpanTexts(html)
+func (p *TransactionMailParser) getTransactionInfo(html *html.Node) (info *data.Transaction, err error) {
+	re := regexp.MustCompile(p.NameAmountRegex)
+	allTexts, err := p.getAllSpanTexts(html)
 	if err != nil {
 		return nil, err
 	}
@@ -94,21 +87,21 @@ func getTransactionInfo(html *html.Node) (info *Info, err error) {
 		name := matches[1]
 		amountText := matches[2]
 
-		base, fraction, err := parseAmountText(amountText)
+		base, fraction, err := p.parseAmountText(amountText)
 		if err != nil {
 			continue
 		}
 
-		return &Info{
+		return &data.Transaction{
 			Name:     name,
 			Base:     base,
 			Fraction: fraction,
 		}, nil
 	}
-	return nil, errors.New("no text in html matched transaction pattern")
+	return nil, errors.New("no text in html matched parser pattern")
 }
 
-func parseAmountText(amountText string) (base, fraction int, err error) {
+func (p *TransactionMailParser) parseAmountText(amountText string) (base, fraction int, err error) {
 	numReg, err := regexp.Compile("[^0-9,\\.]+")
 	if err != nil {
 		return
@@ -134,7 +127,7 @@ func parseAmountText(amountText string) (base, fraction int, err error) {
 	return
 }
 
-func getAllSpanTexts(node *html.Node) ([]string, error) {
+func (p *TransactionMailParser) getAllSpanTexts(node *html.Node) ([]string, error) {
 	spanSelector, err := css.Parse("p > span")
 	if err != nil {
 		return nil, err
@@ -143,7 +136,7 @@ func getAllSpanTexts(node *html.Node) ([]string, error) {
 	var texts []string
 
 	for _, spanNode := range spanSelector.Select(node) {
-		spanText, err := renderNode(spanNode.FirstChild)
+		spanText, err := p.renderNode(spanNode.FirstChild)
 		if err != nil {
 			continue
 		}
@@ -152,7 +145,7 @@ func getAllSpanTexts(node *html.Node) ([]string, error) {
 	return texts, nil
 }
 
-func renderNode(node *html.Node) (string, error) {
+func (p *TransactionMailParser) renderNode(node *html.Node) (string, error) {
 	buf := new(bytes.Buffer)
 	err := html.Render(buf, node)
 	if err != nil {
