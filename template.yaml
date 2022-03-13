@@ -84,8 +84,8 @@ Resources:
   HandlePaymentNotification:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambda/process-payment-notification
-      Handler: process-payment-notification
+      CodeUri: lambda/pay-event
+      Handler: pay-event
       Runtime: go1.x
       Tracing: Active
       Policies:

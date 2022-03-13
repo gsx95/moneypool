@@ -22,6 +22,10 @@ type Info struct {
 	Note     string
 }
 
+func (i Info) AmountString() string {
+	return fmt.Sprintf("%d.%d", i.Base, i.Fraction)
+}
+
 var (
 	NameAmountRegex = os.Getenv("NameAmountRegex")
 )
@@ -81,11 +85,9 @@ func getTransactionInfo(html *html.Node) (info *Info, err error) {
 	for _, line := range allTexts {
 		matches := re.FindStringSubmatch(line)
 		if matches == nil {
-			fmt.Println("line not matching")
 			continue
 		}
 		if len(matches) != 3 {
-			fmt.Println("regex matched, but wrong count of subexpressions found")
 			continue
 		}
 
@@ -94,7 +96,6 @@ func getTransactionInfo(html *html.Node) (info *Info, err error) {
 
 		base, fraction, err := parseAmountText(amountText)
 		if err != nil {
-			fmt.Println("regex matched, but wrong count of subexpressions found")
 			continue
 		}
 

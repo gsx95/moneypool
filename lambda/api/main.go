@@ -7,10 +7,16 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
 )
+
+func init() {
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.InfoLevel)
+}
 
 var (
 	moneyPoolsTableName   = os.Getenv("MoneyPoolsTableName")
@@ -18,6 +24,8 @@ var (
 	corsDomain            = os.Getenv("CorsDomain")
 	awsSession            = session.Must(session.NewSession())
 	dynamoClient          = dynamodb.New(awsSession, aws.NewConfig())
+
+	logger = log.New()
 )
 
 type Transaction struct {
@@ -34,10 +42,14 @@ type Response struct {
 }
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	mpName := request.PathParameters["moneyPool"]
+	mpName, mpParamExists := request.PathParameters["moneyPool"]
+	if !mpParamExists {
+		log.Errorf("no moneypool name given")
+		return badRequestResponse(), nil
+	}
 
-	log.Println("getting details for MP " + mpName)
-
+	logger = logger.WithFields(log.Fields{"requestedMP": mpName}).Logger
+	logger.Infof("search moneyppol")
 	mpItem, err := dynamoClient.GetItem(&dynamodb.GetItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
 			"name": {
@@ -46,21 +58,32 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 		},
 		TableName: aws.String(moneyPoolsTableName),
 	})
-
 	if err != nil {
-		log.Println(err)
+		logger.Errorf("error getting moneypool from db: %v", err)
 		return notFoundResponse(), nil
 	}
 
-	resp := &Response{}
+	items := mpItem.Item
 
-	resp.Name = *mpItem.Item["name"].S
-	resp.Title = *mpItem.Item["title"].S
+	if _, exists := items["name"]; !exists {
+		logger.Errorf("moneypool item has no name field")
+		return internalErrorResponse(), nil
+	}
+
+	if _, exists := items["title"]; !exists {
+		logger.Errorf("moneypool item has no title field")
+		return internalErrorResponse(), nil
+	}
+
+	resp := &Response{
+		Name:  *mpItem.Item["name"].S,
+		Title: *mpItem.Item["title"].S,
+	}
 
 	for _, tValues := range mpItem.Item["transactions"].L {
 		name, date, base, fraction, err := getTransaction(*tValues.S)
 		if err != nil {
-			log.Printf("Error getting transaction %s: %v", *tValues.S, err)
+			log.Errorf("Error getting transaction %s: %v", *tValues.S, err)
 			continue
 		}
 		resp.Transactions = append(resp.Transactions, Transaction{
@@ -73,7 +96,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	jsonResp, err := json.Marshal(resp)
 	if err != nil {
-		log.Printf("Error while marshalling response %v: %v", resp, err)
+		log.Errorf("Error while marshalling response %v: %v", resp, err)
 		return internalErrorResponse(), nil
 	}
 
@@ -106,7 +129,7 @@ func getTransaction(tid string) (name, date string, base, fraction int, err erro
 	}
 	baseString := *trItem.Item["base"].N
 	fractionString := *trItem.Item["fraction"].N
-	log.Printf("got transaction: %s %s %s", name, baseString, fractionString)
+	log.Infof("got transaction: %s %s %s", name, baseString, fractionString)
 	base, err = strconv.Atoi(baseString)
 	if err != nil {
 		return
@@ -118,9 +141,21 @@ func getTransaction(tid string) (name, date string, base, fraction int, err erro
 	return
 }
 
+func badRequestResponse() events.APIGatewayProxyResponse {
+	return events.APIGatewayProxyResponse{
+		Body:       "bad request",
+		StatusCode: 400,
+		Headers: map[string]string{
+			"Access-Control-Allow-Headers": "*",
+			"Access-Control-Allow-Origin":  "*",
+			"Access-Control-Allow-Methods": "OPTIONS,GET",
+		},
+	}
+}
+
 func notFoundResponse() events.APIGatewayProxyResponse {
 	return events.APIGatewayProxyResponse{
-		Body:       "Not found",
+		Body:       "not found",
 		StatusCode: 404,
 		Headers: map[string]string{
 			"Access-Control-Allow-Headers": "*",

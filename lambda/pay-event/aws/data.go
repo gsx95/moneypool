@@ -1,12 +1,10 @@
 package aws
 
 import (
-	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/google/uuid"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -23,17 +21,21 @@ type Amount struct {
 	Fraction int // e.g. cents
 }
 
-func FindMoneyPoolByName(name string) (string, error) {
-	allMoneyPools := getAllMoneyPools()
+func FindMoneyPoolsByPrefix(name string) ([]string, error) {
+	allMoneyPools, err := getAllMoneyPools()
+	if err != nil {
+		return nil, err
+	}
+	moneyPools := make([]string, 0)
 	for _, mpName := range allMoneyPools {
 		if strings.HasPrefix(strings.ToLower(name), strings.ToLower(*mpName)) {
-			return *mpName, nil
+			moneyPools = append(moneyPools, *mpName)
 		}
 	}
-	return "", fmt.Errorf("no moneypool found with name %s", name)
+	return moneyPools, nil
 }
 
-func getAllMoneyPools() (names []*string) {
+func getAllMoneyPools() (names []*string, err error) {
 	input := &dynamodb.ScanInput{
 		TableName: aws.String(moneyPoolsTableName),
 		AttributesToGet: []*string{
@@ -42,8 +44,7 @@ func getAllMoneyPools() (names []*string) {
 	}
 	results, err := dynamoClient.Scan(input)
 	if err != nil {
-		log.Printf("Could not get all money pools %v \n", err)
-		return
+		return nil, fmt.Errorf("could not get all moneypools %v", err)
 	}
 
 	for _, result := range results.Items {
@@ -62,8 +63,6 @@ func AddTransaction(moneyPool, name, date string, amount Amount) error {
 			S: aws.String(uid),
 		},
 	}
-
-	log.Printf("add transaction: %s %s", moneyPool, uid)
 
 	input := &dynamodb.UpdateItemInput{
 		Key: map[string]*dynamodb.AttributeValue{
@@ -85,10 +84,8 @@ func AddTransaction(moneyPool, name, date string, amount Amount) error {
 
 	_, err := dynamoClient.UpdateItem(input)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error updating moneypool item: %v\n", err))
+		return fmt.Errorf("error updating moneypool item: %v", err)
 	}
-
-	log.Printf("add transaction: %s %s - %d - %d", moneyPool, name, amount.Base, amount.Fraction)
 
 	transactionInput := &dynamodb.PutItemInput{
 		Item: map[string]*dynamodb.AttributeValue{
@@ -113,7 +110,7 @@ func AddTransaction(moneyPool, name, date string, amount Amount) error {
 
 	_, err = dynamoClient.PutItem(transactionInput)
 	if err != nil {
-		return errors.New(fmt.Sprintf("Error putting transaction item: %v\n", err))
+		return fmt.Errorf("error putting transaction item: %v", err)
 	}
 	return nil
 }
