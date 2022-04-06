@@ -21,6 +21,7 @@ type MoneyPool struct {
 	Transactions []Transaction `json:"transactions"`
 	Name         string        `json:"name"`
 	Title        string        `json:"title"`
+	Open         bool          `json:"open"`
 }
 
 type MoneyPoolsHandler struct {
@@ -71,6 +72,7 @@ func (h *MoneyPoolsHandler) GetMoneyPool(request events.APIGatewayProxyRequest) 
 	resp := MoneyPool{
 		Name:  *mpItem.Item["name"].S,
 		Title: *mpItem.Item["title"].S,
+		Open:  *mpItem.Item["open"].BOOL,
 	}
 
 	for _, tValues := range mpItem.Item["transactions"].L {
