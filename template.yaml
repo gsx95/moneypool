@@ -84,8 +84,8 @@ Resources:
   HandlePaymentNotification:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: lambda/process-payment-notification
-      Handler: process-payment-notification
+      CodeUri: lambda/transaction
+      Handler: transaction
       Runtime: go1.x
       Tracing: Active
       Policies:
@@ -216,6 +216,11 @@ Resources:
     Properties:
       BucketName: !Ref Domain
 
+  S3BucketMails:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref BucketName
+
   S3BucketPolicy:
     Type: AWS::S3::BucketPolicy
     Properties:
@@ -230,8 +235,26 @@ Resources:
             Principal:
               AWS: !Sub "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity ${CloudFrontOriginAccessIdentity}"
 
+  S3MailBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketMails
+      PolicyDocument:
+        Statement:
+          -
+            Effect: Allow
+            Action: "s3:PutObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${S3BucketMails}/*"
+            Principal:
+              Service: "ses.amazonaws.com"
+            Condition:
+              StringEquals:
+                "aws:Referer": !Sub "${AWS::AccountId}"
+
   ReceiveMailRule:
     Type: AWS::SES::ReceiptRule
+    DependsOn: S3MailBucketPolicy
     Properties:
       RuleSetName: !Ref RuleSetName
       Rule:

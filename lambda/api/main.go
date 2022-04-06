@@ -1,16 +1,24 @@
 package main
 
 import (
+	"api/errors"
+	"api/moneypool"
 	"encoding/json"
+	"fmt"
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
-	"strconv"
 )
+
+func init() {
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.InfoLevel)
+}
 
 var (
 	moneyPoolsTableName   = os.Getenv("MoneyPoolsTableName")
@@ -20,128 +28,33 @@ var (
 	dynamoClient          = dynamodb.New(awsSession, aws.NewConfig())
 )
 
-type Transaction struct {
-	Name     string `json:"name"`
-	Base     int    `json:"base"`
-	Date     string `json:"date,omitempty"`
-	Fraction int    `json:"fraction"`
-}
-
-type Response struct {
-	Transactions []Transaction `json:"transactions"`
-	Name         string        `json:"name"`
-	Title        string        `json:"title"`
-	Open         bool          `json:"open"`
-}
-
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	mpName := request.PathParameters["moneyPool"]
-
-	log.Println("getting details for MP " + mpName)
-
-	mpItem, err := dynamoClient.GetItem(&dynamodb.GetItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"name": {
-				S: aws.String(mpName),
-			},
-		},
-		TableName: aws.String(moneyPoolsTableName),
-	})
+	poolsHandler := moneypool.NewHandler(moneyPoolsTableName, transactionsTableName, corsDomain, *dynamoClient)
+	moneyPool, err := poolsHandler.GetMoneyPool(request)
 
 	if err != nil {
-		log.Println(err)
-		return notFoundResponse(), nil
+		return addHeaderToResponse(errors.ToResponse(err)), nil
 	}
 
-	resp := &Response{}
-
-	resp.Name = *mpItem.Item["name"].S
-	resp.Title = *mpItem.Item["title"].S
-	resp.Open = *mpItem.Item["open"].BOOL
-
-	for _, tValues := range mpItem.Item["transactions"].L {
-		name, date, base, fraction, err := getTransaction(*tValues.S)
-		if err != nil {
-			log.Printf("Error getting transaction %s: %v", *tValues.S, err)
-			continue
-		}
-		resp.Transactions = append(resp.Transactions, Transaction{
-			Name:     name,
-			Date:     date,
-			Base:     base,
-			Fraction: fraction,
-		})
-	}
-
-	jsonResp, err := json.Marshal(resp)
+	jsonResp, err := json.Marshal(moneyPool)
 	if err != nil {
-		log.Printf("Error while marshalling response %v: %v", resp, err)
-		return internalErrorResponse(), nil
+		err = fmt.Errorf("error while marshalling response %v: %v", moneyPool, err)
+		return addHeaderToResponse(errors.ToResponse(err)), nil
 	}
 
-	return events.APIGatewayProxyResponse{
+	return addHeaderToResponse(events.APIGatewayProxyResponse{
 		Body:       string(jsonResp),
 		StatusCode: 200,
-		Headers: map[string]string{
-			"Access-Control-Allow-Headers": "*",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "OPTIONS,GET",
-		},
-	}, nil
+	}), nil
 }
 
-func getTransaction(tid string) (name, date string, base, fraction int, err error) {
-	trItem, err := dynamoClient.GetItem(&dynamodb.GetItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"id": {
-				S: aws.String(tid),
-			},
-		},
-		TableName: aws.String(transactionsTableName),
-	})
-	if err != nil {
-		return
+func addHeaderToResponse(response events.APIGatewayProxyResponse) events.APIGatewayProxyResponse {
+	response.Headers = map[string]string{
+		"Access-Control-Allow-Headers": "*",
+		"Access-Control-Allow-Origin":  "*",
+		"Access-Control-Allow-Methods": "OPTIONS,GET",
 	}
-	name = *trItem.Item["name"].S
-	if trItem.Item["date"] != nil {
-		date = *trItem.Item["date"].S
-	}
-	baseString := *trItem.Item["base"].N
-	fractionString := *trItem.Item["fraction"].N
-	log.Printf("got transaction: %s %s %s", name, baseString, fractionString)
-	base, err = strconv.Atoi(baseString)
-	if err != nil {
-		return
-	}
-	fraction, err = strconv.Atoi(fractionString)
-	if err != nil {
-		return
-	}
-	return
-}
-
-func notFoundResponse() events.APIGatewayProxyResponse {
-	return events.APIGatewayProxyResponse{
-		Body:       "Not found",
-		StatusCode: 404,
-		Headers: map[string]string{
-			"Access-Control-Allow-Headers": "*",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "OPTIONS,GET",
-		},
-	}
-}
-
-func internalErrorResponse() events.APIGatewayProxyResponse {
-	return events.APIGatewayProxyResponse{
-		Body:       "internal error",
-		StatusCode: 500,
-		Headers: map[string]string{
-			"Access-Control-Allow-Headers": "*",
-			"Access-Control-Allow-Origin":  "*",
-			"Access-Control-Allow-Methods": "OPTIONS,GET",
-		},
-	}
+	return response
 }
 
 func main() {

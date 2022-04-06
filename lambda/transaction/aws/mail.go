@@ -9,22 +9,21 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"io"
-	"log"
 	"os"
-	"strings"
 )
 
 var (
-	expectedSubject = os.Getenv("EmailExpectedSubject")
-
 	Session    = session.Must(session.NewSession())
 	downloader = s3manager.NewDownloader(Session)
 	bucketName = os.Getenv("EmailBucketName")
 )
 
-func ParseMoneyPoolMail(messageId string) (mail *parsemail.Email, err error) {
+type MailGetter struct {
+}
+
+func (g *MailGetter) GetMail(messageId string) (mail *parsemail.Email, err error) {
 	id := messageId
-	contentReader, err := readFileFromS3(id)
+	contentReader, err := g.readFileFromS3(id)
 	if err != nil {
 		return nil, fmt.Errorf("Error while reading obj %s from s3: %v\n", id, err)
 	}
@@ -32,14 +31,10 @@ func ParseMoneyPoolMail(messageId string) (mail *parsemail.Email, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("Error while parsing email of object %s from s3: %v\n", id, err)
 	}
-	log.Printf("got aws %s with subject %s\n", id, email.Subject)
-	if strings.ToLower(email.Subject) != strings.ToLower(expectedSubject) {
-		return nil, fmt.Errorf("subject %s not matching expcted %s", email.Subject, expectedSubject)
-	}
 	return &email, nil
 }
 
-func readFileFromS3(key string) (io.Reader, error) {
+func (g *MailGetter) readFileFromS3(key string) (io.Reader, error) {
 	file, err := os.Create("/tmp/" + key)
 	if err != nil {
 		return nil, err
