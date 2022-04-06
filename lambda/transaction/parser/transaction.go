@@ -84,8 +84,15 @@ func (p *TransactionMailParser) getTransactionInfo(html *html.Node) (info *data.
 			continue
 		}
 
-		name := matches[1]
-		amountText := matches[2]
+		result := make(map[string]string)
+		for i, name := range re.SubexpNames() {
+			if i != 0 && name != "" {
+				result[name] = matches[i]
+			}
+		}
+
+		name := result["name"]
+		amountText := result["amount"]
 
 		base, fraction, err := p.parseAmountText(amountText)
 		if err != nil {

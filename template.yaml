@@ -6,12 +6,6 @@ Description: >
 Globals:
   Function:
     Timeout: 10
-  Api:
-    Cors:
-      AllowMethods: "'GET,OPTIONS'"
-      AllowHeaders: "'*'"
-      AllowOrigin: "'*'"
-      AllowCredentials: "'*'"
 
 Parameters:
   WebsiteCertificateArn:
@@ -19,22 +13,13 @@ Parameters:
     Description: Certificate for your website that must be issued in us-east-1
   RuleSetName:
     Type: String
-    Description: Name of SES ReceiptRsuleSet to put the receipt rule in.
-  CorsDomain:
-    Type: String
-    Description: Domain to allow CORS for.
-  BucketName:
-    Type: String
-    Description: Name of the bucket to store your emails in.
+    Description: Name of SES ReceiptRuleSet to put the receipt rule in.
   ReceiveNotificationsMailAddress:
     Type: String
     Description: Email address that you want to receive your paypal notifications with. Needs to have a corresponding verified domain in AWS SES.
   Domain:
     Type: String
     Description: Domain to deploy your frontend to. Needs to have a corresponding hosted zone in route53.
-  APIDomain:
-    Type: String
-    Description: Domain to deploy your api to. Needs to have a corresponding hosted zone in route53.
   HostedZoneName:
     Type: String
     Description: Name of your hosted zone for both website domain and api domain.
@@ -44,14 +29,46 @@ Parameters:
     Default: "Sie haben eine Zahlung erhalten"
   EmailNameAmountRegex:
     Type: String
-    Description: Regex to match the name of the sender and the amount sent in one matching group each. E.g. if the mail contains the text '[Name] has sent [amount] to you', then this probably should be '(.+) has sent (.+) to you'.
-    Default: "(.+) hat Ihnen (.+) gesendet"
+    Description: Regex to match the name of the sender and the amount sent in named the matching groups 'name' and 'amount'.  E.g. if the mail contains the text '[Name] has sent [amount] to you', then this probably should be '(?P<name>(.+)) has sent (?P<amount>(.+)) to you'. Has to work on golang's regex engine.
+    Default: "(?P<name>(.+)) hat Ihnen (?P<amount>(.+)) gesendet"
+Metadata:
+  'AWS::CloudFormation::Interface':
+    ParameterGroups:
+      - Label:
+          default: Website
+        Parameters:
+          - Domain
+          - WebsiteCertificateArn
+          - HostedZoneName
+      - Label:
+          default: Email Receiving
+        Parameters:
+          - RuleSetName
+          - ReceiveNotificationsMailAddress
+      - Label:
+          default: Email Parsing
+        Parameters:
+          - EmailExpectedSubject
+          - EmailNameAmountRegex
+    ParameterLabels:
+      WebsiteCertificateArn:
+        default: Website Certificate Arn
+      HostedZoneName:
+        default: HostedZoneName
+      RuleSetName:
+        default: Ruleset Name
+      ReceiveNotificationsMailAddress:
+        default: Mail address to receive notifications from
+      EmailExpectedSubject:
+        default: Expected subject in notification mail
+      EmailNameAmountRegex:
+        default: Name-amount-regex in mail parsing
 
 Resources:
   APICertificate:
     Type: AWS::CertificateManager::Certificate
     Properties:
-      DomainName: !Ref APIDomain
+      DomainName: !Join [ ".", [ 'api', !Ref Domain ] ]
       ValidationMethod: DNS
 
   API:
@@ -61,7 +78,7 @@ Resources:
       Cors:
         AllowMethods: "'GET,OPTIONS'"
         AllowHeaders: "'*'"
-        AllowOrigin: !Ref CorsDomain
+        AllowOrigin: !Sub ["'https://${Domain}'", {Domain: !Ref Domain}]
         AllowCredentials: "'*'"
       Auth:
         UsagePlan:
@@ -76,7 +93,7 @@ Resources:
             RateLimit: 30
       EndpointConfiguration: REGIONAL
       Domain:
-        DomainName: !Ref APIDomain
+        DomainName: !Join [ ".", [ 'api', !Ref Domain ] ]
         CertificateArn: !Ref APICertificate
         Route53:
           HostedZoneName: !Ref HostedZoneName
@@ -103,7 +120,7 @@ Resources:
         Variables:
           MoneyPoolsTableName: "MoneyPoolsTable"
           TransactionsTableName: "TransactionsTable"
-          EmailBucketName: !Ref BucketName
+          EmailBucketName: !Ref S3BucketMails
           EmailExpectedSubject: !Ref EmailExpectedSubject
           NameAmountRegex: !Ref EmailNameAmountRegex
 
@@ -134,7 +151,7 @@ Resources:
         Variables:
           MoneyPoolsTableName: MoneyPoolsTable
           TransactionsTableName: TransactionsTable
-          CorsDomain: !Ref CorsDomain
+          CorsDomain: !Ref Domain
 
   MoneyPoolsTable:
     Type: 'AWS::DynamoDB::Table'
@@ -219,7 +236,7 @@ Resources:
   S3BucketMails:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Ref BucketName
+      BucketName: !Join [ "-", [ !Ref Domain, 'receive-mails' ] ]
 
   S3BucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -260,11 +277,11 @@ Resources:
       Rule:
         Actions:
           - S3Action:
-              BucketName: !Ref BucketName
+              BucketName: !Ref S3BucketMails
           - LambdaAction:
               FunctionArn: !GetAtt HandlePaymentNotification.Arn
         Enabled: true
-        Name: receive-paypal-notification
+        Name: !Sub ["${Domain}-receive-payment-notification", {Domain: !Ref Domain}]
         Recipients:
           - !Ref ReceiveNotificationsMailAddress
 
