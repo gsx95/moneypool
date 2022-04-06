@@ -31,6 +31,7 @@ type Response struct {
 	Transactions []Transaction `json:"transactions"`
 	Name         string        `json:"name"`
 	Title        string        `json:"title"`
+	Open         bool          `json:"open"`
 }
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -56,6 +57,7 @@ func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRespo
 
 	resp.Name = *mpItem.Item["name"].S
 	resp.Title = *mpItem.Item["title"].S
+	resp.Open = *mpItem.Item["open"].BOOL
 
 	for _, tValues := range mpItem.Item["transactions"].L {
 		name, date, base, fraction, err := getTransaction(*tValues.S)
