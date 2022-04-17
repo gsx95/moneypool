@@ -21,15 +21,14 @@ func init() {
 }
 
 var (
-	moneyPoolsTableName   = os.Getenv("MoneyPoolsTableName")
-	transactionsTableName = os.Getenv("TransactionsTableName")
-	corsDomain            = os.Getenv("CorsDomain")
-	awsSession            = session.Must(session.NewSession())
-	dynamoClient          = dynamodb.New(awsSession, aws.NewConfig())
+	moneyPoolsTableName = os.Getenv("MoneyPoolsTableName")
+	corsDomain          = os.Getenv("CorsDomain")
+	awsSession          = session.Must(session.NewSession())
+	dynamoClient        = dynamodb.New(awsSession, aws.NewConfig())
 )
 
 func handler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
-	poolsHandler := moneypool.NewHandler(moneyPoolsTableName, transactionsTableName, corsDomain, *dynamoClient)
+	poolsHandler := moneypool.NewHandler(moneyPoolsTableName, corsDomain, *dynamoClient)
 	moneyPool, err := poolsHandler.GetMoneyPool(request)
 
 	if err != nil {

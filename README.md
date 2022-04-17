@@ -77,10 +77,10 @@ From your command line:
 
 ```bash
 # Clone this repository
-$ git clone git@github.com:gsx95/georgguessr.git
+$ git clone git@github.com:gsx95/moneypool.git
 
 # Go into the repository
-$ cd georgguessr
+$ cd moneypool
 # build backend and infrastructure template
 $ sam build
 # deploy to your AWS account
