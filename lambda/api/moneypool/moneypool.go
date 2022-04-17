@@ -25,15 +25,14 @@ type MoneyPool struct {
 }
 
 type MoneyPoolsHandler struct {
-	moneyPoolsTableName   string
-	transactionsTableName string
-	corsDomain            string
-	dynamoClient          dynamodb.DynamoDB
-	logger                *log.Entry
+	moneyPoolsTableName string
+	corsDomain          string
+	dynamoClient        dynamodb.DynamoDB
+	logger              *log.Entry
 }
 
-func NewHandler(moneyPoolsTableName string, transactionsTableName string, corsDomain string, dynamoClient dynamodb.DynamoDB) *MoneyPoolsHandler {
-	return &MoneyPoolsHandler{moneyPoolsTableName: moneyPoolsTableName, transactionsTableName: transactionsTableName, corsDomain: corsDomain, dynamoClient: dynamoClient}
+func NewHandler(moneyPoolsTableName string, corsDomain string, dynamoClient dynamodb.DynamoDB) *MoneyPoolsHandler {
+	return &MoneyPoolsHandler{moneyPoolsTableName: moneyPoolsTableName, corsDomain: corsDomain, dynamoClient: dynamoClient}
 }
 
 func (h *MoneyPoolsHandler) GetMoneyPool(request events.APIGatewayProxyRequest) (MoneyPool, error) {
@@ -75,10 +74,10 @@ func (h *MoneyPoolsHandler) GetMoneyPool(request events.APIGatewayProxyRequest) 
 		Open:  *mpItem.Item["open"].BOOL,
 	}
 
-	for _, tValues := range mpItem.Item["transactions"].L {
-		name, date, base, fraction, err := h.getTransaction(*tValues.S)
+	for _, transaction := range mpItem.Item["transactions"].L {
+		name, date, base, fraction, err := h.formatTransaction(transaction.M)
 		if err != nil {
-			h.logger.Errorf("Error getting parser %s: %v", *tValues.S, err)
+			h.logger.Errorf("Error getting transaction %v: %v", transaction, err)
 			continue
 		}
 		resp.Transactions = append(resp.Transactions, Transaction{
@@ -92,24 +91,13 @@ func (h *MoneyPoolsHandler) GetMoneyPool(request events.APIGatewayProxyRequest) 
 	return resp, nil
 }
 
-func (h *MoneyPoolsHandler) getTransaction(tid string) (name, date string, base, fraction int, err error) {
-	trItem, err := h.dynamoClient.GetItem(&dynamodb.GetItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"id": {
-				S: aws.String(tid),
-			},
-		},
-		TableName: aws.String(h.transactionsTableName),
-	})
-	if err != nil {
-		return
+func (h *MoneyPoolsHandler) formatTransaction(trItem map[string]*dynamodb.AttributeValue) (name, date string, base, fraction int, err error) {
+	name = *trItem["name"].S
+	if trItem["date"] != nil {
+		date = *trItem["date"].S
 	}
-	name = *trItem.Item["name"].S
-	if trItem.Item["date"] != nil {
-		date = *trItem.Item["date"].S
-	}
-	baseString := *trItem.Item["base"].N
-	fractionString := *trItem.Item["fraction"].N
+	baseString := *trItem["base"].N
+	fractionString := *trItem["fraction"].N
 	h.logger.Infof("got parser: %s %s %s", name, baseString, fractionString)
 	base, err = strconv.Atoi(baseString)
 	if err != nil {

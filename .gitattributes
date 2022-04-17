@@ -1,0 +1,2 @@
+*.html linguist-detectable=false
+frontend/moneypool/public/index.html linguist-detectable=true

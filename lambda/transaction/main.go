@@ -31,9 +31,8 @@ func init() {
 }
 
 var (
-	nameAmountRegex       = os.Getenv("NameAmountRegex")
-	moneyPoolsTableName   = os.Getenv("MoneyPoolsTableName")
-	transactionsTableName = os.Getenv("TransactionsTableName")
+	nameAmountRegex     = os.Getenv("NameAmountRegex")
+	moneyPoolsTableName = os.Getenv("MoneyPoolsTableName")
 )
 
 func HandleRequest(_ context.Context, event EmailEvent) (string, error) {
@@ -42,7 +41,7 @@ func HandleRequest(_ context.Context, event EmailEvent) (string, error) {
 		ExpectedSubject: os.Getenv("EmailExpectedSubject"),
 		MailGetter:      aws.NewMailGetter(s3manager.NewDownloader(awsSession)),
 		MailParser:      parser.NewTransactionMailParser(nameAmountRegex),
-		DataStore:       aws.NewDataStore(moneyPoolsTableName, transactionsTableName),
+		DataStore:       aws.NewDataStore(moneyPoolsTableName),
 	}
 	proc := NewMailEventProcessor(config)
 

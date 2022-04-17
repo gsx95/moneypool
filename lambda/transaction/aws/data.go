@@ -16,12 +16,11 @@ var (
 )
 
 type DataStore struct {
-	MoneyPoolsTableName   string
-	TransactionsTableName string
+	MoneyPoolsTableName string
 }
 
-func NewDataStore(moneyPoolsTableName string, transactionsTableName string) *DataStore {
-	return &DataStore{MoneyPoolsTableName: moneyPoolsTableName, TransactionsTableName: transactionsTableName}
+func NewDataStore(moneyPoolsTableName string) *DataStore {
+	return &DataStore{MoneyPoolsTableName: moneyPoolsTableName}
 }
 
 func (s *DataStore) FindMoneyPoolsByPrefix(name string) ([]string, error) {
@@ -36,6 +35,57 @@ func (s *DataStore) FindMoneyPoolsByPrefix(name string) ([]string, error) {
 		}
 	}
 	return moneyPools, nil
+}
+
+func (s *DataStore) AddTransaction(moneyPool, name, date string, amount data.Amount) error {
+
+	uid := uuid.New().String()
+
+	transactions := []*dynamodb.AttributeValue{
+		{
+			M: map[string]*dynamodb.AttributeValue{
+				"id": {
+					S: aws.String(uid),
+				},
+				"base": {
+					N: aws.String(strconv.Itoa(amount.Base)),
+				},
+				"fraction": {
+					N: aws.String(strconv.Itoa(amount.Fraction)),
+				},
+				"name": {
+					S: aws.String(name),
+				},
+				"date": {
+					S: aws.String(date),
+				},
+			},
+		},
+	}
+
+	input := &dynamodb.UpdateItemInput{
+		Key: map[string]*dynamodb.AttributeValue{
+			"name": {
+				S: aws.String(moneyPool),
+			},
+		},
+		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
+			":ts": {
+				L: transactions,
+			},
+			":empty_list": {
+				L: []*dynamodb.AttributeValue{},
+			},
+		},
+		UpdateExpression: aws.String("SET transactions = list_append(if_not_exists(transactions, :empty_list), :ts)"),
+		TableName:        aws.String(s.MoneyPoolsTableName),
+	}
+
+	_, err := dynamoClient.UpdateItem(input)
+	if err != nil {
+		return fmt.Errorf("error updating moneypool item: %v", err)
+	}
+	return nil
 }
 
 func (s *DataStore) getAllMoneyPools() (names []*string, err error) {
@@ -55,65 +105,4 @@ func (s *DataStore) getAllMoneyPools() (names []*string, err error) {
 		names = append(names, name.S)
 	}
 	return
-}
-
-func (s *DataStore) AddTransaction(moneyPool, name, date string, amount data.Amount) error {
-
-	uid := uuid.New().String()
-
-	tIds := []*dynamodb.AttributeValue{
-		{
-			S: aws.String(uid),
-		},
-	}
-
-	input := &dynamodb.UpdateItemInput{
-		Key: map[string]*dynamodb.AttributeValue{
-			"name": {
-				S: aws.String(moneyPool),
-			},
-		},
-		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-			":tid": {
-				L: tIds,
-			},
-			":empty_list": {
-				L: []*dynamodb.AttributeValue{},
-			},
-		},
-		UpdateExpression: aws.String("SET transactions = list_append(if_not_exists(transactions, :empty_list), :tid)"),
-		TableName:        aws.String(s.MoneyPoolsTableName),
-	}
-
-	_, err := dynamoClient.UpdateItem(input)
-	if err != nil {
-		return fmt.Errorf("error updating moneypool item: %v", err)
-	}
-
-	transactionInput := &dynamodb.PutItemInput{
-		Item: map[string]*dynamodb.AttributeValue{
-			"id": {
-				S: aws.String(uid),
-			},
-			"base": {
-				N: aws.String(strconv.Itoa(amount.Base)),
-			},
-			"fraction": {
-				N: aws.String(strconv.Itoa(amount.Fraction)),
-			},
-			"name": {
-				S: aws.String(name),
-			},
-			"date": {
-				S: aws.String(date),
-			},
-		},
-		TableName: aws.String(s.TransactionsTableName),
-	}
-
-	_, err = dynamoClient.PutItem(transactionInput)
-	if err != nil {
-		return fmt.Errorf("error putting parser item: %v", err)
-	}
-	return nil
 }
