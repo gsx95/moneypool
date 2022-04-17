@@ -1,0 +1,15 @@
+Return-Path: <service@paypal.de>
+Received: from mx3.slc.paypal.com (mx3.slc.paypal.com [173.0.84.228])
+ by inbound-smtp.eu-west-1.amazonaws.com with SMTP id rtlv0n83oqn7r8toess48pjgfeddimmda6o207g1
+ for test@example.com;
+ Fri, 18 Feb 2022 10:24:26 +0000 (UTC)
+Date: Fri, 18 Feb 2022 02:24:24 -0800
+Message-Id: <1645179864.22306@paypal.com>
+Subject: Sie haben eine Zahlung erhalten
+To: Test Person <test@example.com>
+From: "service@paypal.de" <service@paypal.de>
+Content-Transfer-Encoding: base64
+Content-Type: text/html; charset=UTF-8
+MIME-Version: 1.0
+
+{{.}}

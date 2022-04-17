@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/sirupsen/logrus"
 	"os"
 	"transaction/aws"
@@ -35,9 +37,10 @@ var (
 )
 
 func HandleRequest(_ context.Context, event EmailEvent) (string, error) {
+	awsSession := session.Must(session.NewSession())
 	config := Config{
 		ExpectedSubject: os.Getenv("EmailExpectedSubject"),
-		MailGetter:      &aws.MailGetter{},
+		MailGetter:      aws.NewMailGetter(s3manager.NewDownloader(awsSession)),
 		MailParser:      parser.NewTransactionMailParser(nameAmountRegex),
 		DataStore:       aws.NewDataStore(moneyPoolsTableName, transactionsTableName),
 	}

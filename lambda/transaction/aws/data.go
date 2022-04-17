@@ -3,6 +3,7 @@ package aws
 import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/google/uuid"
 	"strconv"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	dynamoClient = dynamodb.New(Session, aws.NewConfig())
+	dynamoClient = dynamodb.New(session.Must(session.NewSession()), aws.NewConfig())
 )
 
 type DataStore struct {
