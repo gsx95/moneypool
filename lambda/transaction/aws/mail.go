@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/DusanKasan/parsemail"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"io"
@@ -13,23 +12,32 @@ import (
 )
 
 var (
-	Session    = session.Must(session.NewSession())
-	downloader = s3manager.NewDownloader(Session)
 	bucketName = os.Getenv("EmailBucketName")
 )
 
+type FileDownloader interface {
+	Download(w io.WriterAt, input *s3.GetObjectInput, options ...func(*s3manager.Downloader)) (n int64, err error)
+}
+
 type MailGetter struct {
+	FileDownloader
+}
+
+func NewMailGetter(downloader FileDownloader) *MailGetter {
+	return &MailGetter{
+		downloader,
+	}
 }
 
 func (g *MailGetter) GetMail(messageId string) (mail *parsemail.Email, err error) {
 	id := messageId
 	contentReader, err := g.readFileFromS3(id)
 	if err != nil {
-		return nil, fmt.Errorf("Error while reading obj %s from s3: %v\n", id, err)
+		return nil, fmt.Errorf("Error while reading obj %s from s3: %v", id, err)
 	}
 	email, err := parsemail.Parse(contentReader)
 	if err != nil {
-		return nil, fmt.Errorf("Error while parsing email of object %s from s3: %v\n", id, err)
+		return nil, fmt.Errorf("Error while parsing email of object %s from s3: %v", id, err)
 	}
 	return &email, nil
 }
@@ -40,7 +48,7 @@ func (g *MailGetter) readFileFromS3(key string) (io.Reader, error) {
 		return nil, err
 	}
 
-	_, err = downloader.Download(file,
+	_, err = g.FileDownloader.Download(file,
 		&s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
 			Key:    aws.String(key),

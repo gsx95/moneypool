@@ -90,7 +90,7 @@ func (h *MailEventProcessor) getTransactionInfoFromMail(email parsemail.Email) (
 	if err != nil {
 		return data.Transaction{}, fmt.Errorf("error while reading parser infos form mail: %v", err)
 	}
-	h.logger = h.logger.WithFields(logrus.Fields{"sender": info.Name, "note": info.Note, "amount": info.AmountString()}).Logger
+	h.logger = h.logger.WithFields(logrus.Fields{"sender": info.Name, "note": info.Note, "amount": fmt.Sprintf("%d.%d", info.Base, info.Fraction)}).Logger
 	h.logger.Infof("found parser info")
 	return *info, err
 }

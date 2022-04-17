@@ -27,22 +27,22 @@ func (p *TransactionMailParser) GetTransactionInfo(email parsemail.Email) (*data
 
 	decodedHtml, err := b64.StdEncoding.DecodeString(email.HTMLBody)
 	if err != nil {
-		return nil, fmt.Errorf("Error while decoding base64 html %v\n", err)
+		return nil, fmt.Errorf("Error while decoding base64 html %v", err)
 	}
 
 	rootNode, err := html.Parse(bytes.NewReader(decodedHtml))
 	if err != nil {
-		return nil, fmt.Errorf("Error while parsing html %v\n", err)
+		return nil, fmt.Errorf("Error while parsing html %v", err)
 	}
 
-	transInfo, err := p.getTransactionInfo(rootNode)
+	transInfo, err := p.getTransaction(rootNode)
 	if err != nil {
-		return nil, fmt.Errorf("Error while getting parser info %v\n", err)
+		return nil, fmt.Errorf("Error while getting parser info %v", err)
 	}
 
 	note, err := p.getNote(rootNode)
 	if err != nil {
-		return nil, fmt.Errorf("Error while getting Note %v\n", err)
+		return nil, fmt.Errorf("Error while getting Note %v", err)
 	}
 
 	transInfo.Note = note
@@ -61,6 +61,9 @@ func (p *TransactionMailParser) getNote(html *html.Node) (string, error) {
 	}
 	firstImg := imgTags[0]
 	allTextTags, err := p.getAllSpanTexts(firstImg.Parent.Parent)
+	if len(allTextTags) == 0 {
+		return "", fmt.Errorf("no span text found")
+	}
 	if err != nil {
 		return "", err
 	}
@@ -68,9 +71,12 @@ func (p *TransactionMailParser) getNote(html *html.Node) (string, error) {
 	return allTextTags[0], nil
 }
 
-func (p *TransactionMailParser) getTransactionInfo(html *html.Node) (info *data.Transaction, err error) {
+func (p *TransactionMailParser) getTransaction(html *html.Node) (info *data.Transaction, err error) {
 	re := regexp.MustCompile(p.NameAmountRegex)
 	allTexts, err := p.getAllSpanTexts(html)
+	if len(allTexts) == 0 {
+		return nil, fmt.Errorf("no span text found")
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +86,7 @@ func (p *TransactionMailParser) getTransactionInfo(html *html.Node) (info *data.
 		if matches == nil {
 			continue
 		}
-		if len(matches) != 3 {
+		if len(matches) < 3 {
 			continue
 		}
 
@@ -96,6 +102,7 @@ func (p *TransactionMailParser) getTransactionInfo(html *html.Node) (info *data.
 
 		base, fraction, err := p.parseAmountText(amountText)
 		if err != nil {
+			fmt.Println(err)
 			continue
 		}
 
@@ -114,22 +121,36 @@ func (p *TransactionMailParser) parseAmountText(amountText string) (base, fracti
 		return
 	}
 	numberText := numReg.ReplaceAllString(amountText, "")
+	if len(strings.TrimSpace(numberText)) == 0 {
+		return 0, 0, fmt.Errorf("no amount found in amount text %s", amountText)
+	}
+	if !strings.ContainsAny(numberText, "0123456789") {
+		return 0, 0, fmt.Errorf("no numbers found in number text %s", numberText)
+	}
 	curReg, err := regexp.Compile("[^a-zA-Z]+")
 	if err != nil {
 		return
 	}
 	currency := curReg.ReplaceAllString(amountText, "")
+
+	// the call to accounting.UnformatNumber panics if it cannot extract
+	// valid locale information based on the given currency string.
+	// we don't want panics, so we check the locale beforehand and return an error if necessary
+	if _, localeExists := accounting.LocaleInfo[currency]; !localeExists {
+		return 0, 0, fmt.Errorf("could not parse locale information from currency %s", currency)
+	}
+
 	amount := accounting.UnformatNumber(numberText, 2, currency)
 	amountItems := strings.Split(amount, ".")
 	baseString := strings.Replace(amountItems[0], ",", "", -1)
 	fractionString := amountItems[1]
 	base, err = strconv.Atoi(baseString)
 	if err != nil {
-		return 0, 0, nil
+		return 0, 0, fmt.Errorf("could not parse base string '%s' to int", baseString)
 	}
 	fraction, err = strconv.Atoi(fractionString)
 	if err != nil {
-		return 0, 0, nil
+		return 0, 0, fmt.Errorf("could not parse fraction string '%s' to int", fractionString)
 	}
 	return
 }
@@ -143,6 +164,9 @@ func (p *TransactionMailParser) getAllSpanTexts(node *html.Node) ([]string, erro
 	var texts []string
 
 	for _, spanNode := range spanSelector.Select(node) {
+		if spanNode.FirstChild == nil {
+			continue
+		}
 		spanText, err := p.renderNode(spanNode.FirstChild)
 		if err != nil {
 			continue
