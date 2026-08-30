@@ -6,9 +6,18 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/leekchan/accounting v1.0.0
 	github.com/sirupsen/logrus v1.8.1
-	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
+	golang.org/x/net v0.55.0
+)
+
+require (
+	github.com/cockroachdb/apd v1.1.0 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/shopspring/decimal v0.0.0-20180709203117-cd690d0c9e24 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 )
 
 module transaction
 
-go 1.16
+go 1.25.0
